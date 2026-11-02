@@ -76,3 +76,15 @@ Browser interaction tests run in Linux Chromium. Physical Mac trackpad and Safar
 ## Notion integration (Mac app)
 
 Use the Mac menu **Notion → Setup Guide…** to configure two-way, on-demand flashcard sync. See [Notion setup and sync behavior](docs/NOTION.md).
+
+## Math lists and Physics PDF answers
+
+Choose **Math** or **Physics** when creating a card. The answer supports `-` bullets and `1.` numbered lists, including inline and display LaTeX. Use the list buttons above the answer box or type the prefixes directly. HTML is displayed as text.
+
+Choose or drop a PDF into **PDF ANSWER**. A text answer is optional when a PDF is attached. Use Previous/Next page, zoom, and Fit width; scroll the viewer horizontally or vertically for large pages. PDFs stay hidden until Reveal answer during review. Physics has its own card filter.
+
+PDFs up to **20 MB** are stored separately in local IndexedDB, so they do not fill the flashcard text-storage quota. The library supports up to 60 MB of attached PDFs in total. Exported Lint JSON backups include the PDF bytes; restoring that backup restores its attachments. Export a backup before updating, moving to another Mac, or clearing app storage. Password-protected PDFs must be unlocked before import. Removing an attachment from a card does not immediately reclaim its stored bytes, allowing existing backups to retain their identifiers.
+
+Notion sync supports Physics text but does not transfer PDF attachments. A PDF-only answer sends a filename notice to Notion. Use a Lint backup to transfer the PDF between devices.
+
+PDF.js and its fonts/decoders are bundled for offline use. Run `npm run build:pdf` after editing `src/pdf/`; run `python3 scripts/update-flashcards.py` after editing the readable editor, rich-answer, backup, or review sources. Keep the generated bundles committed for the static website and native build.

@@ -66,3 +66,12 @@ test('partial create failure can be retried without duplicate rows',async()=>{
 test('oversized fields stop sync before any writes',async()=>{
  const s=setup([{...card(),back:'x'.repeat(2001)}]);await assert.rejects(s.run(),/2,000/);assert.equal(s.pages.length,0);
 });
+
+test('Physics PDF-only cards sync a text notice and retain the local PDF on updates',async()=>{
+ const pdf={id:'attachment-id',name:'physics.pdf',size:123};
+ const s=setup([{...card(),kind:'physics',back:'',pdf}]);await s.run();
+ assert.equal(s.pages[0].properties.Kind.select.name,'physics');
+ assert.match(s.pages[0].properties.Back.rich_text[0].text.content,/attachment stored in Lint/);
+ s.pages[0].properties.Back.rich_text=[{text:{content:'Explanation added in Notion'}}];await s.run();
+ assert.deepEqual(s.library().cards[0].pdf,pdf);assert.equal(s.library().cards[0].back,'Explanation added in Notion');
+});

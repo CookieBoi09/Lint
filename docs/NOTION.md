@@ -19,7 +19,7 @@ Create a full-page table database with these exact property names and types:
 | Front | Title | The question; rename the existing title column |
 | Back | Text | The answer |
 | Deck | Text | Deck name; a blank value imports into `Notion` |
-| Kind | Select | `math` or `coding`; blank defaults to `math` |
+| Kind | Select | `math`, `physics`, or `coding`; blank defaults to `math` |
 | Language | Select | `python`, `java`, `javascript`, or `swift`; blank defaults to `python` |
 | Explanation | Text | Optional explanation |
 | Lint ID | Text | Leave empty for new Notion cards; Lint fills it automatically |
@@ -53,3 +53,5 @@ A blank token field in Connect Notion preserves the saved token. **Disconnect…
 ## Verification and privacy
 
 Requests go directly from the Mac to `https://api.notion.com` using native HTTPS. Lint has no sync server. Notion stores the content you send under your workspace's access settings. The app cannot verify a private database until you supply its connection locally. Automated tests use mock Notion responses and exercise conflict handling, pagination, repeatability, review-history preservation, and interrupted operations; they do not certify access to your workspace.
+
+Physics PDF attachments remain local and are included in Lint JSON backups. Notion sync exchanges only text; a PDF-only answer exports a filename notice. Syncing on another Mac does not download the PDF—restore a Lint backup to transfer it.

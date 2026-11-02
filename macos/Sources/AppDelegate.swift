@@ -51,8 +51,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
     }
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         guard ProcessInfo.processInfo.arguments.contains("--smoke-test") else { return }
+        guard let pdfData = try? Data(contentsOf: URL(fileURLWithPath: "tests/fixtures/physics.pdf")) else {
+            print("FAIL: PDF smoke fixture missing; run from the repository root."); exit(1)
+        }
         let script = """
-        (() => {
+        return await (async () => {
           if (!window.lintNotion || typeof window.lintNotion.sync !== 'function') throw new Error('Notion sync bridge did not load');
           if (!window.lintNative || !document.querySelector('.deck-tile')) throw new Error('App did not start');
           if (document.querySelector('#lint-notes-nav') || document.querySelector('#notes-root')) throw new Error('Notes must not appear in the Mac app');
@@ -60,14 +63,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
           document.querySelector('[data-add]').click();
           const kind = document.querySelector('#kind'); kind.value = 'coding'; kind.dispatchEvent(new Event('change'));
           if (!document.querySelector('.cm-editor')) throw new Error('Code editor did not start');
+          kind.value = 'physics'; kind.dispatchEvent(new Event('change'));
+          const front = document.querySelector('#front'); front.value = 'PDF smoke question'; front.dispatchEvent(new Event('input'));
+          const bytes = Uint8Array.from(atob(pdfBase64), c => c.charCodeAt(0));
+          const transfer = new DataTransfer(); transfer.items.add(new File([bytes], 'physics.pdf', {type:'application/pdf'}));
+          const input = document.querySelector('#answer-pdf'); input.files = transfer.files; input.dispatchEvent(new Event('change'));
+          for (let i=0; i<150 && document.querySelector('#pdf-preview').dataset.ready !== 'true'; i++) await new Promise(resolve => setTimeout(resolve,100));
+          if (document.querySelector('#pdf-preview').dataset.ready !== 'true') throw new Error('PDF did not render: '+document.querySelector('#pdf-file-status').textContent+' '+document.querySelector('#form-error').textContent);
+          document.querySelector('#save-card').click();
+          const library = JSON.parse(localStorage.getItem('lint.web.library.v1'));
+          const card = library.cards.find(c => c.front === 'PDF smoke question');
+          if (!card || !card.pdf || card.kind !== 'physics') throw new Error('Physics PDF card did not save');
+          const backup = await window.lintPDF.exportBackup(library);
+          if (!backup.pdfFiles[card.pdf.id]) throw new Error('PDF missing from backup');
+          await window.lintPDF.prepareRestore(backup);
           return true;
         })()
         """
-        webView.evaluateJavaScript(script) { result, error in
-            if let error = error { print("FAIL: Native WKWebView smoke test: \(error.localizedDescription)"); exit(1) }
-            guard result as? Bool == true else { print("FAIL: Unexpected smoke test result"); exit(1) }
-            print("PASS: Native WKWebView loads Lint without Notes and opens the code editor.")
-            exit(0)
+        webView.callAsyncJavaScript(script, arguments: ["pdfBase64":pdfData.base64EncodedString()], in: nil, in: .page) { result in
+            switch result {
+            case .failure(let error): print("FAIL: Native WKWebView smoke test: \(error.localizedDescription)"); exit(1)
+            case .success(let value):
+                guard value as? Bool == true else { print("FAIL: Unexpected smoke test result"); exit(1) }
+                print("PASS: Native WKWebView loads Lint, opens code editor, renders and saves a Physics PDF, and includes it in backups."); exit(0)
+            }
         }
     }
     private func send(_ payload: [String: Any]) {

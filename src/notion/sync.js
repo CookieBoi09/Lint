@@ -16,7 +16,7 @@ export function fromPage(page) {
 }
 function validate(value) {
   if (!value.front.trim() || !value.back.trim()) throw new Error('Every card needs a nonempty Front and Back.');
-  if (!['math','coding'].includes(value.kind) || !['python','java','javascript','swift'].includes(value.language)) throw new Error('Kind must be math or coding; Language must be python, java, javascript, or swift.');
+  if (!['math','physics','coding'].includes(value.kind) || !['python','java','javascript','swift'].includes(value.language)) throw new Error('Kind must be math, physics, or coding; Language must be python, java, javascript, or swift.');
   for (const key of ['front','back','deck','explanation']) if (value[key].length > 2000) throw new Error(`${key} exceeds the supported 2,000-character limit. No sync changes were made.`);
 }
 export function properties(value, id) {
@@ -24,7 +24,7 @@ export function properties(value, id) {
   return {Front:{title:rich(value.front)},Back:{rich_text:rich(value.back)},Deck:{rich_text:rich(value.deck)},Kind:{select:{name:value.kind}},Language:{select:{name:value.language}},Explanation:{rich_text:rich(value.explanation)},'Lint ID':{rich_text:rich(id)}};
 }
 function localValue(card, library) {
-  const value = {front:card.front,back:card.back,deck:library.decks.find(d=>d.id===card.deckId)?.name||'Notion',kind:card.kind,language:card.language||'python',explanation:card.explanation||''};
+  const value = {front:card.front,back:card.back||(card.pdf?`PDF answer: ${card.pdf.name} (attachment stored in Lint)`:''),deck:library.decks.find(d=>d.id===card.deckId)?.name||'Notion',kind:card.kind,language:card.language||'python',explanation:card.explanation||''};
   validate(value); return value;
 }
 export async function syncLibrary({request, storage, uuid=()=>crypto.randomUUID(), now=()=>Date.now()}) {
