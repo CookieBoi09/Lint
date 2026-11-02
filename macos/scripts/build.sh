@@ -8,6 +8,8 @@ fi
 output="${LINT_BUILD_DIR:-$PWD/macos/build}"
 app_path="$output/Lint.app"
 mkdir -p "$app_path/Contents/MacOS" "$app_path/Contents/Resources" "$output/bin"
+xcrun swiftc -parse-as-library macos/Sources/NotionDataSourceResolver.swift macos/Tests/NotionDataSourceResolverTests.swift -o "$output/bin/notion-source-tests"
+"$output/bin/notion-source-tests"
 cp macos/Info.plist "$app_path/Contents/Info.plist"
 # ditto updates the bundled site without touching user data or any repository source.
 node macos/scripts/prepare-site.mjs "$app_path/Contents/Resources"

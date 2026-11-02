@@ -118,12 +118,8 @@ final class NotionSync: NSObject, URLSessionTaskDelegate {
     @MainActor private func operation(_ op: String, _ data: [String: Any]) async throws -> [String: Any] {
         if op == "source" {
             guard let id = UserDefaults.standard.string(forKey: databaseKey), identifier(id) == id else { throw fail("Configure a Notion database first.") }
-            var source: [String: Any]
-            do { source = try await api("GET", "data_sources/\(id)") }
-            catch let error as NSError where error.code == 404 {
-                let db = try await api("GET", "databases/\(id)")
-                guard let sources = db["data_sources"] as? [[String: Any]], sources.count == 1, let sid = sources[0]["id"] as? String, identifier(sid) != nil else { throw fail("This database has multiple data sources. Enter the specific data source ID in Connect Notion.") }
-                source = try await api("GET", "data_sources/\(sid)")
+            let source = try await NotionDataSourceResolver.resolve(id) { path in
+                try await self.api("GET", path)
             }
             guard let sid = source["id"] as? String, identifier(sid) != nil else { throw fail("Notion returned an invalid data source.") }
             sourceID = sid; return source
@@ -166,11 +162,21 @@ final class NotionSync: NSObject, URLSessionTaskDelegate {
                 case 401: message = "Notion rejected the token. Update your connection."
                 case 403: message = "Notion denied access. Enable Read, Update, and Insert content and share the database with the integration."
                 case 404: message = "Notion could not find this database or row. Check the ID and database connection permissions."
-                case 400: message = "Notion rejected the card properties. Check the exact property names and types in the setup guide."
+                case 400: message = "Notion rejected this request. See the operation and API details below."
                 case 429: message = "Notion is rate limiting requests. Wait a minute and sync again."
                 default: message = "Notion request failed (HTTP \(http.statusCode)). Try syncing again later."
                 }
-                throw NSError(domain:"LintNotion",code:http.statusCode,userInfo:[NSLocalizedDescriptionKey:message])
+                let operation: String
+                if path.hasPrefix("databases/") { operation = "Reading database" }
+                else if path.hasSuffix("/query") { operation = "Reading flashcards" }
+                else if path.hasPrefix("data_sources/") { operation = "Reading data source" }
+                else if method == "POST" { operation = "Creating flashcard" }
+                else if method == "PATCH" { operation = "Updating flashcard" }
+                else { operation = "Reading flashcard" }
+                let details = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+                let apiMessage = (details?["message"] as? String ?? "").replacingOccurrences(of: secret, with: "[redacted]")
+                let explanation = "\(message)\n\n\(operation) (HTTP \(http.statusCode))\n\(String(apiMessage.prefix(1200)))"
+                throw NSError(domain:"LintNotion",code:http.statusCode,userInfo:[NSLocalizedDescriptionKey:explanation])
             }
             guard let object = try JSONSerialization.jsonObject(with:data) as? [String: Any] else { throw fail("Notion returned invalid JSON.") }; return object
         }
